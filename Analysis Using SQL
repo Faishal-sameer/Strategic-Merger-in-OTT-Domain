@@ -1,0 +1,593 @@
+create database project_14
+use project_14
+
+
+select * from dbo.Hotstar_content_consumption
+select * from dbo.Hotstar_contents
+select * from dbo.Hotstar_subscribers
+
+
+
+select COUNT(*) from dbo.jio_content_consumption
+select COUNT(*) from dbo.jio_contents
+select COUNT(*) from dbo.jio_subscribers
+
+
+
+-- 1. Total Users & Growth Trends 
+--  What is the total number of users for LioCinema and Jotstar, and how do they 
+-- compare in terms of growth trends (January–November 2024)?
+
+-- Hotstar
+
+WITH CTE AS(
+SELECT
+	*,
+	lag(CM_USER,1,0)OVER(ORDER BY MONTHS ASC) AS PREVIOUSMONTH_USER
+FROM(
+select 
+	MONTH(A.SUBSCRIPTION_DATE) AS MONTHS,
+	COUNT(DISTINCT A.USER_ID) AS CM_USER
+from dbo.Hotstar_subscribers A
+JOIN
+	DBO.Hotstar_content_consumption B
+ON
+	A.user_id=B.user_id
+WHERE
+	YEAR(A.SUBSCRIPTION_DATE)=2024
+GROUP BY
+	MONTH(A.SUBSCRIPTION_DATE)
+)SUB
+)
+SELECT
+	*,
+	ROUND(CAST(CASE WHEN PREVIOUSMONTH_USER=0 THEN 0 ELSE (100.0 * (cm_user*1.0/PREVIOUSMONTH_USER-1)) END  AS FLOAT),2)AS PERCENTA_GROWTH
+FROM
+	CTE
+WHERE
+	PREVIOUSMONTH_USER>0
+
+-- JIO 
+
+WITH CTE AS(
+SELECT
+	*,
+	LAG(TOTAL_USER,1,0)OVER(ORDER BY MONTHS ASC) AS PREVIOUSMONTH_USER
+FROM(
+select 
+	MONTH(A.SUBSCRIPTION_DATE) AS MONTHS,
+	COUNT(DISTINCT A.USER_ID) AS TOTAL_USER
+from dbo.JIO_subscribers A
+JOIN
+	DBO.JIO_content_consumption B
+ON
+	A.user_id=B.user_id
+WHERE
+	YEAR(A.SUBSCRIPTION_DATE)=2024
+GROUP BY
+	MONTH(A.SUBSCRIPTION_DATE)
+)SUB
+)
+SELECT
+	*,
+	ROUND(CAST(CASE WHEN PREVIOUSMONTH_USER=0 THEN 0 ELSE 100*((1.0*TOTAL_USER/PREVIOUSMONTH_USER*1.0)-1) END  AS FLOAT),2)AS PERCENTA_GROWTH
+FROM
+	CTE
+WHERE
+	PREVIOUSMONTH_USER>0
+
+
+---- 2. Content Library Comparison 
+-- What is the total number of contents available on LioCinema vs. Jotstar? How do 
+-- they differ in terms of language and content type? 
+
+-- Hotstar--
+-- Total-3 content_type Movie, Series, Sport
+select 
+	distinct content_type
+from dbo.Hotstar_contents
+
+-- Total-10 Language:- English, Punjabi, Gujarati, Telugu,
+--         Tamil, Kannada, Marathi, Malayalam, Hindi, Bengali
+select 
+	distinct language
+from dbo.Hotstar_contents
+
+--	Total-8 Genre:- Family, Live Matches, Highlights, Comedy, Drama, 
+--   Adventure, Sci-Fi, Thriller, Romance, Action, Documentaries, Fantasy
+select 
+	distinct genre
+from dbo.Hotstar_contents
+
+
+-- JIO
+-- Total-3 content_type Movie, Series, Sport
+select 
+	distinct content_type
+from dbo.Jio_contents
+
+-- Total-7 Language:- English, Telugu, Tamil, Kannada, 
+--   Marathi, Malayalam, Hindi
+select 
+	distinct language
+from dbo.Jio_contents
+
+--	Total-11 Genre:-  Highlights, Comedy, Drama,  Horror, Thriller,
+--   Romance, Action, Documentaries, Family, Crime, LiVE mATCH, 
+select 
+	distinct genre
+from dbo.Jio_contents
+
+--3. User Demographics 
+-- What is the distribution of users by age group, city tier, and subscription plan for each 
+-- platform?
+
+-- Hotstar
+
+-- age wise total_user
+SELECT 
+	age_group,
+	COUNT(distinct user_id) AS TOTAL_USER
+FROM DBO.Hotstar_subscribers
+GROUP BY 
+	age_group
+
+-- City Tier Wise
+SELECT 
+	city_tier,
+	COUNT(*) AS TOTAL_USER
+FROM DBO.Hotstar_subscribers
+GROUP BY 
+		city_tier
+
+--	Subscription Wise
+SELECT 
+	subscription_plan,
+	COUNT(*) AS TOTAL_USER
+FROM DBO.Hotstar_subscribers
+GROUP BY 
+	subscription_plan
+
+-- Lio Cinema
+-- age wise total_user
+SELECT 
+	age_group,
+	COUNT(distinct user_id) AS TOTAL_USER
+FROM DBO.Jio_subscribers
+GROUP BY 
+	age_group
+
+-- City Tier Wise
+SELECT 
+	city_tier,
+	COUNT(*) AS TOTAL_USER
+FROM DBO.Jio_subscribers
+GROUP BY 
+		city_tier
+
+--	Subscription Wise
+SELECT 
+	subscription_plan,
+	COUNT(*) AS TOTAL_USER	
+FROM DBO.Jio_subscribers
+GROUP BY 
+	subscription_plan
+
+--4. Active vs. Inactive Users 
+-- What percentage of LioCinema and Jotstar users are active vs. inactive? How do 
+--these rates vary by age group and subscription plan?
+
+-- Hotstar, Age group 
+select
+	*,
+	round(cast((100.0*active_user/total_user)as float),2) as active_percentage,
+	round(cast((100.0*Unactive_user/total_user) as float),2) as Unactive_percentage
+from(
+select
+	age_group,
+	count(*) as total_user,
+	sum(case when last_active_date ='Null' then 1 end) as active_user,
+	sum(case when last_active_date  !='Null'  then 1 end) as Unactive_user
+from
+	dbo.Hotstar_subscribers
+group by
+	age_group
+)sub
+
+
+-- Hotstar, subscription _plan
+select
+	*,
+	round(cast((100.0*active_user/total_user)as float),2) as active_percentage,
+	round(cast((100.0*Unactive_user/total_user) as float),2) as Unactive_percentage
+from(
+select
+	subscription_plan,
+	count(*) as total_user,
+	sum(case when last_active_date ='Null' then 1 end) as active_user,
+	sum(case when last_active_date  !='Null'  then 1 end) as Unactive_user
+from
+	dbo.Hotstar_subscribers
+group by
+	subscription_plan
+)sub
+-- Jio Cinema, age group
+
+
+select
+	*,
+	round(cast((100.0*active_user/total_user)as float),2) as active_percentage,
+	round(cast((100.0*Unactive_user/total_user) as float),2) as Unactive_percentage
+from(
+select
+	age_group,
+	count(*) as total_user,
+	sum(case when last_active_date ='Null' then 1 end) as active_user,
+	sum(case when last_active_date  !='Null'  then 1 end) as Unactive_user
+from
+	dbo.Jio_subscribers
+group by
+	age_group
+)sub
+
+-- jio cinema, subscription plan
+
+select
+	*,
+	round(cast((100.0*active_user/total_user)as float),2) as active_percentage,
+	round(cast((100.0*Unactive_user/total_user) as float),2) as Unactive_percentage
+from(
+select
+	subscription_plan,
+	count(*) as total_user,
+	sum(case when last_active_date ='Null' then 1 end) as active_user,
+	sum(case when last_active_date  !='Null'  then 1 end) as Unactive_user
+from
+	dbo.Jio_subscribers
+group by
+	subscription_plan
+)sub
+
+
+--5. Watch Time Analysis 
+-- What is the average watch time for LioCinema vs. Jotstar during the analysis period? 
+--How do these compare by city tier and device type?
+
+-- HOTSTAR
+-- AVERAGE WATCH TIME IN CITY TIER
+select
+	age_group,
+	sum(case when city_tier= 'Tier 1' then total_user end) as tier_1_user,
+	sum(case when city_tier= 'Tier 2' then total_user end) as tier_2_user,
+	sum(case when city_tier= 'Tier 3' then total_user end) as tier_3_user,
+	sum(case when city_tier= 'Tier 1' then total_hour end) as [tier_1_Watch(hr)],
+	sum(case when city_tier= 'Tier 2' then total_hour end) as [tier_2_watch(hr)],
+	sum(case when city_tier= 'Tier 3' then total_hour end) as [tier_3_watch(hr)]
+from(
+select
+	age_group,
+	b.city_tier,
+	COUNT(distinct a.user_id) as total_user,
+	sum(a.total_watch_time_mins)/60 as total_hour
+from
+	dbo.Hotstar_content_consumption a
+join
+	dbo.Hotstar_subscribers b
+on
+	a.user_id=b.user_id
+group by
+	b.city_tier, age_group
+)sub
+group by age_group
+
+---  AVERAGE WATCH TIME BY USING DEVICE 
+select
+	*,
+	total_hour/total_user  as average_watch_time
+from(
+select
+	A.device_type,
+	COUNT(distinct a.user_id) as total_user,
+	sum(a.total_watch_time_mins)/60 as total_hour
+from
+	dbo.Hotstar_content_consumption a
+join
+	dbo.Hotstar_subscribers b
+on
+	a.user_id=b.user_id
+group by
+	A.device_type
+)sub
+
+
+-- JIO CINEMA
+
+
+-- AVERAGE WATCH TIME IN CITY TIER
+select
+	*,
+	total_hour/total_user  as average_watch_time
+from(
+select
+	b.city_tier,
+	COUNT(distinct a.user_id) as total_user,
+	sum(a.total_watch_time_mins)/60 as total_hour
+from
+	dbo.Jio_content_consumption a
+join
+	dbo.Jio_subscribers b
+on
+	a.user_id=b.user_id
+group by
+	b.city_tier
+)sub
+
+
+---  AVERAGE WATCH TIME BY USING DEVICE 
+select
+	*,
+	total_hour/total_user  as average_watch_time
+from(
+select
+	A.device_type,
+	COUNT(distinct a.user_id) as total_user,
+	sum(a.total_watch_time_mins)/60 as total_hour
+from
+	dbo.Jio_content_consumption a
+join
+	dbo.Jio_subscribers b
+on
+	a.user_id=b.user_id
+group by
+	A.device_type
+)sub
+
+
+--6. Inactivity Correlation 
+-- How do inactivity patterns correlate with total watch time or average watch time? Are 
+--less engaged users more likely to become inactive? 
+
+-- HOTSTAR USER 
+SELECT
+	*,
+	TOTAL_WATCH_HOUR/TOTAL_USER AS AVERANGE_WATCH_HOUR,
+	TOTAL_ACTIVE_HOUR/ACTIVE_USER AS AVERAGE_ACTIVE_WATCH_HOUR,
+	TOTAL_UNACTIVE_HOUR/UNACTIVE_USER AS AVERAGE_UNACTIVE_WATCH_HOUR
+FROM(
+SELECT
+	B.city_tier,
+	COUNT(DISTINCT A.user_id) AS TOTAL_USER,
+	SUM(A.total_watch_time_mins)/60 AS TOTAL_WATCH_HOUR,
+	SUM(CASE WHEN B.last_active_date='NULL' THEN A.total_watch_time_mins END)/60 AS TOTAL_ACTIVE_HOUR,
+	SUM(CASE WHEN B.last_active_date<>'NULL' THEN A.total_watch_time_mins END)/60 AS TOTAL_UNACTIVE_HOUR,
+	COUNT(DISTINCT(CASE WHEN B.last_active_date ='NULL' THEN A.user_id END )) AS ACTIVE_USER,
+	COUNT(DISTINCT(CASE WHEN B.last_active_date <>'NULL' THEN A.user_id END )) AS UNACTIVE_USER
+FROM
+	DBO.Hotstar_content_consumption a
+join
+	DBO.Hotstar_subscribers B
+ON
+	A.user_id=B.user_id
+GROUP BY
+	B.city_tier
+)SUB
+
+-- Jio
+
+SELECT
+	*,
+	TOTAL_WATCH_HOUR/TOTAL_USER AS AVERANGE_WATCH_HOUR,
+	TOTAL_ACTIVE_HOUR/ACTIVE_USER AS AVERAGE_ACTIVE_WATCH_HOUR,
+	TOTAL_UNACTIVE_HOUR/UNACTIVE_USER AS AVERAGE_UNACTIVE_WATCH_HOUR
+FROM(
+SELECT
+	B.city_tier,
+	COUNT(DISTINCT A.user_id) AS TOTAL_USER,
+	SUM(A.total_watch_time_mins)/60 AS TOTAL_WATCH_HOUR,
+	SUM(CASE WHEN B.last_active_date='NULL' THEN A.total_watch_time_mins END)/60 AS TOTAL_ACTIVE_HOUR,
+	SUM(CASE WHEN B.last_active_date<>'NULL' THEN A.total_watch_time_mins END)/60 AS TOTAL_UNACTIVE_HOUR,
+	COUNT(DISTINCT(CASE WHEN B.last_active_date ='NULL' THEN A.user_id END )) AS ACTIVE_USER,
+	COUNT(DISTINCT(CASE WHEN B.last_active_date <>'NULL' THEN A.user_id END )) AS UNACTIVE_USER
+FROM
+	DBO.Jio_content_consumption a
+join
+	DBO.Jio_subscribers B
+ON
+	A.user_id=B.user_id
+GROUP BY
+	B.city_tier
+)SUB
+
+---- 7. Downgrade Trends 
+-- How do downgrade trends differ between LioCinema and Jotstar? Are downgrades 
+-- more prevalent on one platform compared to the other? 
+
+select * from dbo.Hotstar_content_consumption
+select * from dbo.Hotstar_contents
+select * from dbo.Hotstar_subscribers
+
+-- HOSTSTAR
+select
+	*,
+	round(cast(100.0*downgrade/total_user as float),2) as percentage
+from(
+select
+	count(*) as total_user,
+	sum(case when subscription_plan='Premium' and new_subscription_plan='VIP' then 1
+		when new_subscription_plan='Free' then 1 else 0 end) as downgrade
+from
+	dbo.Hotstar_subscribers
+)sub
+
+
+-- JIO CINEMA
+select
+	*,
+	round(cast(100.0*downgrade/total_user as float),2) as percentage
+from(
+select
+	count(*) as total_user,
+	sum(case when subscription_plan='Premium' and new_subscription_plan='Basic' then 1
+		when new_subscription_plan='Free' then 1 else 0 end) as downgrade
+from
+	dbo.Jio_subscribers
+)sub
+
+
+--8.  Upgrade Patterns 
+-- What are the most common upgrade transitions (e.g., Free to Basic, Free to VIP, 
+-- Free to Premium) for LioCinema and Jotstar? How do these differ across platforms?
+
+-- Hotstar Upgrade
+select
+	*,
+	round(cast(100.0*total_upgrade/Total_User as float),2) as [Growth %]
+from(
+SELECT
+	COUNT(*) AS Total_User,
+	sum(case
+			when subscription_plan='Free' and new_subscription_plan in ('VIP', 'Premium')  THEN 1
+			when subscription_plan='Premium' and new_subscription_plan='VIP' then 1 
+		else 0 end
+					) as total_upgrade
+FROM
+	DBO.Hotstar_subscribers
+)sub
+
+-- JIO-Cinema
+select
+	*,
+	round(cast(100.0*Total_Upgrade/Total_User as float),2) as [Growth (%)]
+from(
+select
+	count(distinct user_id) as Total_User,
+	Sum(Case 
+			when subscription_plan='Free' and new_subscription_plan in ('Basic', 'Premium') then 1
+			when subscription_plan='Basic' and new_subscription_plan ='Premium' then 1 
+			else 0 end	) as Total_Upgrade
+from
+	dbo.Jio_subscribers
+)Sub
+
+
+--9. Paid Users Distribution 
+--  How does the paid user percentage (e.g., Basic, Premium for LioCinema; VIP, 
+--  Premium for Jotstar) vary across different platforms? Analyse the proportion of 
+--  premium users in Tier 1, Tier 2, and Tier 3 cities and identify any notable trends or 
+--  differences.
+
+select
+	*,
+	round(cast(100.0*Total_Paid_User/Total_User as float),2) as Paid_User_Percentages,
+	round(cast(100.0*Total_PREMIUM_User/Total_Paid_User as float),2) as Premium_Percentages,
+	round(cast(100.0*Total_VIP_User/Total_Paid_User as float),2) as VIP_Percentages
+from(
+	Select
+		city_tier,
+		count(distinct user_id) as Total_User,
+		sum(case when subscription_plan in ('VIP', 'Premium') then 1 
+			else 0 end) as Total_Paid_User,
+		sum(case when subscription_plan in ('Premium') then 1 
+			else 0 end) as Total_PREMIUM_User,
+		sum(case when subscription_plan in ('VIP') then 1 
+			else 0 end) as Total_VIP_User
+	from
+		dbo.Hotstar_subscribers
+	group by
+		city_tier
+)Sub
+
+
+-- Jio-Cinema
+select
+	*,
+	round(cast(100.0*Total_Paid_User/Total_User as float),2) as Paid_User_Percentages,
+	round(cast(100.0*Total_PREMIUM_User/Total_Paid_User as float),2) as Premium_Percentages,
+	round(cast(100.0*Total_Basic_User/Total_Paid_User as float),2) as Basic_Percentages
+from(
+	Select
+		city_tier,
+		count(distinct user_id) as Total_User,
+		sum(case when subscription_plan in ('Basic', 'Premium') then 1 
+			else 0 end) as Total_Paid_User,
+		sum(case when subscription_plan in ('Premium') then 1 
+			else 0 end) as Total_PREMIUM_User,
+		sum(case when subscription_plan in ('Basic') then 1 
+			else 0 end) as Total_Basic_User
+	from
+		dbo.Jio_subscribers
+	group by
+		city_tier
+)Sub
+
+--10. Revenue Analysis 
+--  Assume the following monthly subscription prices, calculate the total revenue 
+--  generated by both platforms (LioCinema and Jotstar) for the analysis period (January 
+--  to November 2024).  
+
+/*
+Jio-Cinema----------Price
+	Basic-----------49
+	Premium---------129
+Hotstsr---
+	VIP-------------159
+	Premium---------359
+
+*/
+
+--The calculation should consider: 
+--  Subscribers count under each plan. 
+--  Active duration of subscribers on their respective plans. 
+--  Upgrades and downgrades during the period, ensuring revenue reflects the 
+--time spent under each plan.
+
+-- jotstar
+select
+	datename(month, subscription_date) as month,
+	sum(Previous_Plan_Values) as past_revenues,
+	sum(New_Plan_Values) as Current_revenues
+from(
+select 
+	*,
+	case when subscription_plan='Premium' then 359 
+		when subscription_plan='VIP' then 159 else 0 end as Previous_Plan_Values,
+	case when new_subscription_plan='Premium' then 359 
+		when new_subscription_plan='VIP' then 159 else 0 end as New_Plan_Values
+from dbo.Hotstar_subscribers
+)Sub
+group by
+	datename(month, subscription_date)
+
+-- JIO CINEMA
+
+select
+	datename(month, subscription_date) as month,
+	sum(Previous_Plan_Values) as past_revenues,
+	sum(New_Plan_Values) as Current_revenues
+from(
+select 
+	*,
+	case when subscription_plan='Premium' then 129 
+		when subscription_plan='Basic' then 49 else 0 end as Previous_Plan_Values,
+	case when new_subscription_plan='Premium' then 129 
+		when new_subscription_plan='Basic' then 49 else 0 end as New_Plan_Values
+from dbo.Jio_subscribers
+)Sub
+group by
+	datename(month, subscription_date) 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
